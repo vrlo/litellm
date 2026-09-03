@@ -3,9 +3,9 @@ from collections.abc import Mapping
 from typing import Final, cast
 
 from litellm._logging import verbose_proxy_logger
+from litellm.caching.caching import DualCache
 from litellm.integrations.custom_logger import CustomLogger
 from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.proxy_server import DualCache
 from litellm.types.utils import CallTypes, CallTypesLiteral
 
 _ANTHROPIC_CALL_TYPES: Final = frozenset(
@@ -14,6 +14,7 @@ _ANTHROPIC_CALL_TYPES: Final = frozenset(
         CallTypes.aanthropic_messages,
     }
 )
+_ANTHROPIC_CALL_TYPE_NAMES: Final = frozenset(call_type.value for call_type in _ANTHROPIC_CALL_TYPES)
 _AZURE_DEEPSEEK_MODELS: Final = frozenset(
     {
         "azure_ai/deepseek-v4-flash",
@@ -39,9 +40,10 @@ def _text_block(value: object) -> dict[str, object] | None:
 def _system_blocks(content: object) -> tuple[dict[str, object], ...] | None:
     values: Final = cast(list[object], content) if isinstance(content, list) else [content]
     blocks: Final = tuple(_text_block(value) for value in values)
-    if not blocks or any(block is None for block in blocks):
+    if any(block is None for block in blocks):
         return None
-    return cast(tuple[dict[str, object], ...], blocks)
+    typed_blocks: Final = cast(tuple[dict[str, object], ...], blocks)
+    return tuple(block for block in typed_blocks if isinstance((text := block.get("text")), str) and text.strip())
 
 
 def _reminder_block(block: dict[str, object]) -> dict[str, object]:
@@ -68,6 +70,9 @@ def normalize_anthropic_system_messages(data: dict[str, object]) -> dict[str, ob
         return data
     raw_messages: Final = cast(list[object], messages)
     if not all(isinstance(message, dict) for message in raw_messages):
+        verbose_proxy_logger.warning(
+            "Skipped DeepSeek V4 system-message normalization due to an unsupported message entry"
+        )
         return data
     typed_messages: Final = cast(list[dict[str, object]], raw_messages)
     if not _has_system_role_message(typed_messages):
@@ -75,7 +80,7 @@ def normalize_anthropic_system_messages(data: dict[str, object]) -> dict[str, ob
 
     leading_system_count: Final = _leading_system_count(typed_messages)
     if leading_system_count == len(typed_messages):
-        verbose_proxy_logger.debug(
+        verbose_proxy_logger.warning(
             "Skipped DeepSeek V4 system-message normalization because it would leave no messages"
         )
         return data
@@ -84,7 +89,7 @@ def normalize_anthropic_system_messages(data: dict[str, object]) -> dict[str, ob
     if "system" in data:
         parsed_existing_system: Final = _system_blocks(data["system"])
         if parsed_existing_system is None:
-            verbose_proxy_logger.debug(
+            verbose_proxy_logger.warning(
                 "Skipped DeepSeek V4 system-message normalization due to unsupported top-level system content"
             )
             return data
@@ -99,10 +104,12 @@ def normalize_anthropic_system_messages(data: dict[str, object]) -> dict[str, ob
 
         blocks = _system_blocks(message.get("content", ""))
         if blocks is None:
-            verbose_proxy_logger.debug(
+            verbose_proxy_logger.warning(
                 "Skipped DeepSeek V4 system-message normalization due to unsupported system-message content"
             )
             return data
+        if not blocks:
+            continue
         if index < leading_system_count:
             promoted_system_blocks.extend(blocks)
         else:
@@ -178,7 +185,11 @@ def normalize_deepseek_deployment(
 
 
 class DeepSeekV4ClaudeCodeMitigation(CustomLogger):
-    allowed_model_groups: frozenset[str] | None = None
+    def __init__(self, allowed_model_groups: frozenset[str] | None = None) -> None:
+        super().__init__()  # pyright: ignore[reportUnknownMemberType]
+        self.allowed_model_groups: Final = (
+            _model_groups_from_env() if allowed_model_groups is None else allowed_model_groups
+        )
 
     async def async_pre_call_hook(
         self,
@@ -187,10 +198,7 @@ class DeepSeekV4ClaudeCodeMitigation(CustomLogger):
         data: dict[str, object],
         call_type: CallTypesLiteral,
     ) -> dict[str, object]:
-        if self.allowed_model_groups is None or call_type not in {
-            "anthropic_messages",
-            "aanthropic_messages",
-        }:
+        if self.allowed_model_groups is None or call_type not in _ANTHROPIC_CALL_TYPE_NAMES:
             return data
         try:
             return stamp_requested_model_group(data)
@@ -218,4 +226,3 @@ class DeepSeekV4ClaudeCodeMitigation(CustomLogger):
 
 
 deepseek_v4_claude_code_mitigation: Final = DeepSeekV4ClaudeCodeMitigation()
-deepseek_v4_claude_code_mitigation.allowed_model_groups = _model_groups_from_env()

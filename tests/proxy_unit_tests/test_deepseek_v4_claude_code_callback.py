@@ -1,12 +1,20 @@
 import pytest
 
 from examples.deepseek_v4_claude_code_mitigation.callback import (
+    DeepSeekV4ClaudeCodeMitigation,
     deepseek_v4_claude_code_mitigation,
     normalize_anthropic_system_messages,
     normalize_deepseek_deployment,
     stamp_requested_model_group,
 )
 from litellm.types.utils import CallTypes
+
+
+def test_callback_constructor_accepts_explicit_model_groups() -> None:
+    callback = DeepSeekV4ClaudeCodeMitigation(frozenset({"primary-model-group"}))
+
+    assert callback.allowed_model_groups == frozenset({"primary-model-group"})
+    assert callback.message_logging is True
 
 
 def test_normalizes_first_turn_after_fallback_selection() -> None:
@@ -123,6 +131,65 @@ def test_promotes_only_contiguous_leading_system_messages() -> None:
             "content": [{"type": "text", "text": "<system-reminder>later</system-reminder>"}],
         },
     ]
+
+
+def test_empty_top_level_system_does_not_abort_normalization() -> None:
+    request: dict[str, object] = {
+        "model": "azure_ai/DeepSeek-V4-Flash-0731",
+        "system": [],
+        "messages": [
+            {"role": "user", "content": "hello"},
+            {"role": "system", "content": "agents"},
+        ],
+    }
+
+    normalized = normalize_anthropic_system_messages(request)
+
+    assert "system" not in normalized
+    assert normalized["messages"] == [
+        {"role": "user", "content": "hello"},
+        {
+            "role": "user",
+            "content": [{"type": "text", "text": "<system-reminder>agents</system-reminder>"}],
+        },
+    ]
+
+
+@pytest.mark.parametrize("empty_content", [[], "", "   "])
+def test_empty_system_message_content_is_dropped(empty_content: object) -> None:
+    request: dict[str, object] = {
+        "model": "azure_ai/DeepSeek-V4-Flash-0731",
+        "messages": [
+            {"role": "user", "content": "hello"},
+            {"role": "system", "content": empty_content},
+        ],
+    }
+
+    normalized = normalize_anthropic_system_messages(request)
+
+    assert "system" not in normalized
+    assert normalized["messages"] == [{"role": "user", "content": "hello"}]
+
+
+def test_empty_text_blocks_are_removed_without_dropping_nonempty_blocks() -> None:
+    request: dict[str, object] = {
+        "model": "azure_ai/DeepSeek-V4-Flash-0731",
+        "messages": [
+            {
+                "role": "system",
+                "content": [
+                    {"type": "text", "text": ""},
+                    {"type": "text", "text": "instructions", "cache_control": {"type": "ephemeral"}},
+                ],
+            },
+            {"role": "user", "content": "hello"},
+        ],
+    }
+
+    normalized = normalize_anthropic_system_messages(request)
+
+    assert normalized["system"] == [{"type": "text", "text": "instructions", "cache_control": {"type": "ephemeral"}}]
+    assert normalized["messages"] == [{"role": "user", "content": "hello"}]
 
 
 def test_all_system_messages_fail_open_instead_of_producing_empty_messages() -> None:

@@ -4,6 +4,8 @@ model_list:
       model: azure_ai/DeepSeek-V4-Flash
       api_base: https://cody-io-eu.services.ai.azure.com
       api_key: os.environ/AZURE_AI_API_KEY
+      # reasoning_effort is unsupported by this Flash deployment. The raw
+      # Anthropic keys are inert after translation but document the boundary.
       additional_drop_params:
         - reasoning_effort
         - thinking
@@ -13,6 +15,8 @@ model_list:
       model: azure_ai/DeepSeek-V4-Flash-0731
       api_base: https://cody-io-eu.services.ai.azure.com
       api_key: os.environ/AZURE_AI_API_KEY
+      # reasoning_effort is unsupported by this Flash deployment. The raw
+      # Anthropic keys are inert after translation but document the boundary.
       additional_drop_params:
         - reasoning_effort
         - thinking
