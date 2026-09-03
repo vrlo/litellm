@@ -2,7 +2,15 @@
 
 This custom callback works around malformed Claude Code requests without changing LiteLLM. It supports `azure_ai/DeepSeek-V4-Flash` and `azure_ai/DeepSeek-V4-Flash-0731`, whether either deployment is selected directly or through Router fallback
 
-Before routing, the callback moves first-turn `messages[].role == "system"` content into the top-level Anthropic `system` field. After an assistant turn, it changes dynamic system attachments into user-side `<system-reminder>` blocks. Once Router selects a deployment, a deployment hook removes `thinking` and `output_config.effort` only for the affected Azure DeepSeek models. Other `output_config` settings, such as structured-output formats, are retained
+After Router selects a deployment, the callback runs only for the two affected Azure DeepSeek models. It normalizes a request only when `messages[]` contains an invalid `system` role. First-turn system content moves into the top-level Anthropic `system` field, while later dynamic system attachments become user-side `<system-reminder>` blocks. The same deployment hook removes `thinking` and `output_config.effort`. Other `output_config` settings, such as structured-output formats, are retained
+
+Set `DEEPSEEK_V4_MITIGATION_MODEL_GROUPS` to add an optional model-group gate. The comma-separated comparison is case-insensitive and accepts either the selected fallback group or its original model group:
+
+```bash
+export DEEPSEEK_V4_MITIGATION_MODEL_GROUPS="primary-model-group,deepseek-v4-flash,deepseek-v4-flash-0731"
+```
+
+When the variable is unset, selected-deployment matching and the invalid system-role check remain the only normalization gates
 
 For example, the newer deployment can be configured as a fallback without changing the callback:
 
