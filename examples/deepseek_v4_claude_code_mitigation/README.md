@@ -1,8 +1,17 @@
 # DeepSeek V4 Claude Code mitigation for LiteLLM 1.99.0
 
-This custom callback works around malformed Claude Code requests without changing LiteLLM. It runs only for the Anthropic Messages endpoint and the `deepseek-v4-flash-0731` model
+This custom callback works around malformed Claude Code requests without changing LiteLLM. It supports `azure_ai/DeepSeek-V4-Flash` and `azure_ai/DeepSeek-V4-Flash-0731`, whether either deployment is selected directly or through Router fallback
 
-Before the first assistant turn, the callback moves `messages[].role == "system"` content into the top-level Anthropic `system` field. After an assistant turn, it changes dynamic system attachments into user-side `<system-reminder>` blocks. It removes `thinking` and `output_config.effort`, while retaining other `output_config` settings such as structured-output formats
+Before routing, the callback moves first-turn `messages[].role == "system"` content into the top-level Anthropic `system` field. After an assistant turn, it changes dynamic system attachments into user-side `<system-reminder>` blocks. Once Router selects a deployment, a deployment hook removes `thinking` and `output_config.effort` only for the affected Azure DeepSeek models. Other `output_config` settings, such as structured-output formats, are retained
+
+For example, the newer deployment can be configured as a fallback without changing the callback:
+
+```yaml
+router_settings:
+  fallbacks:
+    - primary-model-group:
+        - deepseek-v4-flash-0731
+```
 
 Run the proxy from the repository root:
 

@@ -4,9 +4,14 @@ from typing import Final, cast
 from litellm.integrations.custom_logger import CustomLogger
 from litellm.proxy._types import UserAPIKeyAuth
 from litellm.proxy.proxy_server import DualCache
-from litellm.types.utils import CallTypesLiteral
+from litellm.types.utils import CallTypes, CallTypesLiteral
 
-_MODEL_NAME: Final = "deepseek-v4-flash-0731"
+_AZURE_DEEPSEEK_MODELS: Final = frozenset(
+    {
+        "azure_ai/deepseek-v4-flash",
+        "azure_ai/deepseek-v4-flash-0731",
+    }
+)
 _SYSTEM_REMINDER_OPEN: Final = "<system-reminder>"
 _SYSTEM_REMINDER_CLOSE: Final = "</system-reminder>"
 
@@ -79,35 +84,36 @@ def _normalize_messages(
     return normalized_messages, promoted_system_blocks
 
 
-def normalize_anthropic_request(data: dict[str, object]) -> dict[str, object]:
-    model: Final = data.get("model")
+def normalize_anthropic_system_messages(data: dict[str, object]) -> dict[str, object]:
     messages: Final = data.get("messages")
-    if not isinstance(model, str) or model.lower() != _MODEL_NAME or not isinstance(messages, list):
+    if not isinstance(messages, list):
         return data
 
     normalized_messages, promoted_system_blocks = _normalize_messages(cast(list[object], messages))
     existing_system_blocks: Final = _system_blocks(data["system"]) if "system" in data else ()
+    normalized: Final = {key: value for key, value in data.items() if key not in {"system", "messages"}}
+    optional_system: Final = (
+        {"system": [*existing_system_blocks, *promoted_system_blocks]}
+        if existing_system_blocks or promoted_system_blocks
+        else {}
+    )
+    return {**normalized, **optional_system, "messages": list(normalized_messages)}
+
+
+def remove_unsupported_deepseek_thinking(data: dict[str, object]) -> dict[str, object]:
+    model: Final = data.get("model")
+    if not isinstance(model, str) or model.lower() not in _AZURE_DEEPSEEK_MODELS:
+        return data
+
     output_config: Final = data.get("output_config")
     retained_output_config: Final = (
         {key: value for key, value in cast(dict[str, object], output_config).items() if key != "effort"}
         if isinstance(output_config, dict)
         else None
     )
-    normalized: Final = {
-        key: value for key, value in data.items() if key not in {"thinking", "output_config", "system", "messages"}
-    }
-    optional_system: Final = (
-        {"system": [*existing_system_blocks, *promoted_system_blocks]}
-        if existing_system_blocks or promoted_system_blocks
-        else {}
-    )
+    normalized: Final = {key: value for key, value in data.items() if key not in {"thinking", "output_config"}}
     optional_output_config: Final = {"output_config": retained_output_config} if retained_output_config else {}
-    return {
-        **normalized,
-        **optional_system,
-        **optional_output_config,
-        "messages": list(normalized_messages),
-    }
+    return {**normalized, **optional_output_config}
 
 
 class DeepSeekV4ClaudeCodeMitigation(CustomLogger):
@@ -120,7 +126,14 @@ class DeepSeekV4ClaudeCodeMitigation(CustomLogger):
     ) -> dict[str, object]:
         if call_type != "anthropic_messages":
             return data
-        return normalize_anthropic_request(data)
+        return normalize_anthropic_system_messages(data)
+
+    async def async_pre_call_deployment_hook(
+        self,
+        kwargs: dict[str, object],
+        call_type: CallTypes | None,
+    ) -> dict[str, object]:
+        return remove_unsupported_deepseek_thinking(kwargs)
 
 
 deepseek_v4_claude_code_mitigation: Final = DeepSeekV4ClaudeCodeMitigation()

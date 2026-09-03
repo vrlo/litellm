@@ -1,4 +1,9 @@
 model_list:
+  - model_name: deepseek-v4-flash
+    litellm_params:
+      model: azure_ai/DeepSeek-V4-Flash
+      api_base: https://cody-io-eu.services.ai.azure.com
+      api_key: os.environ/AZURE_AI_API_KEY
   - model_name: deepseek-v4-flash-0731
     litellm_params:
       model: azure_ai/DeepSeek-V4-Flash-0731
