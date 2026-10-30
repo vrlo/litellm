@@ -59713,6 +59713,11 @@
         "cache_creation_input_token_cost": 1.71875e-05,
         "cache_read_input_token_cost": 1.375e-06,
         "output_cost_per_token": 8.25e-05,
+        "search_context_cost_per_query": {
+            "search_context_size_high": 0.012,
+            "search_context_size_low": 0.012,
+            "search_context_size_medium": 0.012
+        },
         "litellm_provider": "bedrock_mantle",
         "max_input_tokens": 1050000,
         "max_output_tokens": 128000,
@@ -59737,6 +59742,7 @@
         "supports_response_schema": true,
         "supports_tool_choice": true,
         "supports_xhigh_reasoning_effort": true,
+        "supports_web_search": true,
         "supports_vision": true
     },
     "bedrock_mantle/openai.gpt-daybreak-blue-5.6-sol": {
@@ -59748,6 +59754,11 @@
         "cache_read_input_token_cost_above_272k_tokens": 8.8e-07,
         "output_cost_per_token": 2.2e-05,
         "output_cost_per_token_above_272k_tokens": 3.3e-05,
+        "search_context_cost_per_query": {
+            "search_context_size_high": 0.012,
+            "search_context_size_low": 0.012,
+            "search_context_size_medium": 0.012
+        },
         "litellm_provider": "bedrock_mantle",
         "max_input_tokens": 1050000,
         "max_output_tokens": 128000,
@@ -59770,6 +59781,7 @@
         "supports_response_schema": true,
         "supports_tool_choice": true,
         "supports_xhigh_reasoning_effort": true,
+        "supports_web_search": true,
         "supports_vision": true,
         "source": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-openai-gpt-daybreak-blue-56-sol.html"
     },
@@ -60171,6 +60183,11 @@
         "input_cost_per_token_ultrafast": 6.6e-05,
         "output_cost_per_token": 5.5e-05,
         "output_cost_per_token_above_272k_tokens": 8.25e-05,
+        "search_context_cost_per_query": {
+            "search_context_size_high": 0.012,
+            "search_context_size_low": 0.012,
+            "search_context_size_medium": 0.012
+        },
         "litellm_provider": "bedrock_mantle",
         "max_input_tokens": 922000,
         "max_output_tokens": 128000,
@@ -60199,6 +60216,7 @@
         "supports_response_schema": true,
         "supports_tool_choice": true,
         "supports_xhigh_reasoning_effort": true,
+        "supports_web_search": true,
         "supports_vision": true,
         "source": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-openai-gpt-6-astra.html"
     },
@@ -60211,6 +60229,11 @@
         "cache_read_input_token_cost_above_272k_tokens": 4.4e-07,
         "output_cost_per_token": 1.1e-05,
         "output_cost_per_token_above_272k_tokens": 1.65e-05,
+        "search_context_cost_per_query": {
+            "search_context_size_high": 0.012,
+            "search_context_size_low": 0.012,
+            "search_context_size_medium": 0.012
+        },
         "litellm_provider": "bedrock_mantle",
         "max_input_tokens": 922000,
         "max_output_tokens": 128000,
@@ -60237,6 +60260,7 @@
         "supports_response_schema": true,
         "supports_tool_choice": true,
         "supports_xhigh_reasoning_effort": true,
+        "supports_web_search": true,
         "supports_vision": true,
         "source": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-cards-openai.html"
     },
@@ -60249,6 +60273,11 @@
         "cache_read_input_token_cost_above_272k_tokens": 2.2e-08,
         "output_cost_per_token": 5.5e-07,
         "output_cost_per_token_above_272k_tokens": 8.25e-07,
+        "search_context_cost_per_query": {
+            "search_context_size_high": 0.012,
+            "search_context_size_low": 0.012,
+            "search_context_size_medium": 0.012
+        },
         "litellm_provider": "bedrock_mantle",
         "max_input_tokens": 922000,
         "max_output_tokens": 128000,
@@ -60275,6 +60304,7 @@
         "supports_response_schema": true,
         "supports_tool_choice": true,
         "supports_xhigh_reasoning_effort": true,
+        "supports_web_search": true,
         "supports_vision": true,
         "source": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-cards-openai.html"
     },
@@ -75145,6 +75175,11 @@
         "input_cost_per_token_above_272k_tokens": 4.4e-06,
         "input_cost_per_token_above_272k_tokens_ultrafast": 2.64e-05,
         "input_cost_per_token_ultrafast": 1.32e-05,
+        "search_context_cost_per_query": {
+            "search_context_size_high": 0.012,
+            "search_context_size_low": 0.012,
+            "search_context_size_medium": 0.012
+        },
         "litellm_provider": "bedrock_mantle",
         "max_input_tokens": 1000000,
         "max_output_tokens": 131072,
@@ -75175,6 +75210,7 @@
         "supports_response_schema": true,
         "supports_tool_choice": true,
         "supports_vision": true,
+        "supports_web_search": true,
         "supports_xhigh_reasoning_effort": true,
         "use_openai_responses_path": true
     },
@@ -78853,6 +78889,11 @@
         "cache_read_input_token_cost_above_272k_tokens": 1.1e-07,
         "input_cost_per_token": 1.1e-06,
         "input_cost_per_token_above_272k_tokens": 2.2e-06,
+        "search_context_cost_per_query": {
+            "search_context_size_high": 0.012,
+            "search_context_size_low": 0.012,
+            "search_context_size_medium": 0.012
+        },
         "litellm_provider": "bedrock_mantle",
         "max_input_tokens": 922000,
         "max_output_tokens": 128000,
@@ -78881,6 +78922,7 @@
         "supports_response_schema": true,
         "supports_tool_choice": true,
         "supports_vision": true,
+        "supports_web_search": true,
         "supports_xhigh_reasoning_effort": true,
         "use_openai_responses_path": true
     },

@@ -1,3 +1,4 @@
+from collections.abc import Iterator, Mapping, Sequence
 from typing import Final
 
 import pytest
@@ -537,17 +538,6 @@ def test_web_search_gate_reads_server_side_tool_usage_details_without_citations(
     assert cost == 3 * _DEFAULT_WEB_SEARCH_COST_PER_CALL
 
 
-_BEDROCK_MANTLE_WEB_SEARCH_MODELS = (
-    "bedrock_mantle/openai.gpt-5.6-sol",
-    "bedrock_mantle/openai.gpt-5.6-terra",
-    "bedrock_mantle/openai.gpt-5.6-luna",
-    "bedrock_mantle/openai.gpt-5.5",
-    "bedrock_mantle/openai.gpt-5.4",
-)
-
-_BEDROCK_MANTLE_WEB_SEARCH_RATE = 0.012
-
-
 def _openai_responses_response(model, output, usage=None, tools=None):
     return ResponsesAPIResponse.model_validate(
         {
@@ -763,6 +753,86 @@ def test_responses_usage_tool_usage_web_search_billed_without_output_item(local_
             standard_built_in_tools_params=None,
         )
         assert cost == pytest.approx(num_requests * per_call)
+
+
+def _is_commercial_mantle_gpt_responses_row(key: str, info: Mapping[str, object]) -> bool:
+    return (
+        info.get("litellm_provider") == "bedrock_mantle"
+        and "/openai.gpt-" in key
+        and "/us-gov-" not in key
+        and (info.get("mode") == "responses" or info.get("use_openai_responses_path") is True)
+    )
+
+
+def _billed_mantle_web_search_cost(model: str, num_requests: int) -> float:
+    response: Final = _openai_responses_response(
+        model,
+        [dict(_ASSISTANT_MESSAGE_OUTPUT_ITEM)],
+        usage={
+            "input_tokens": 10,
+            "output_tokens": 5,
+            "total_tokens": 15,
+            "tool_usage": {"web_search": {"num_requests": num_requests}},
+        },
+    )
+    return StandardBuiltInToolCostTracking.get_cost_for_built_in_tools(
+        model=model,
+        response_object=response,
+        usage=None,
+        custom_llm_provider="bedrock_mantle",
+        standard_built_in_tools_params=None,
+    )
+
+
+def _mantle_gpt_web_search_problems(models: Sequence[str]) -> Iterator[str]:
+    for model in models:
+        info = litellm.get_model_info(model=model, custom_llm_provider="bedrock_mantle")
+        pricing = info.get("search_context_cost_per_query")
+        rate = None if pricing is None else pricing.get("search_context_size_medium")
+
+        if info.get("supports_web_search") is not True:
+            yield f"{model} does not declare supports_web_search"
+        if pricing is None:
+            yield f"{model} declares no search_context_cost_per_query"
+            continue
+        if rate is None or rate <= 0:
+            yield f"{model} declares no positive search_context_size_medium"
+            continue
+        if (pricing.get("search_context_size_low"), pricing.get("search_context_size_high")) != (rate, rate):
+            yield f"{model} prices a search context size differently from search_context_size_medium"
+
+        billed = _billed_mantle_web_search_cost(model=model, num_requests=2)
+        if billed != pytest.approx(2 * rate):
+            yield f"{model} bills {billed} for 2 reported searches, expected {2 * rate}"
+
+
+def _commercial_mantle_gpt_responses_rows() -> tuple[str, ...]:
+    return tuple(
+        key for key, info in litellm.model_cost.items() if _is_commercial_mantle_gpt_responses_row(key=key, info=info)
+    )
+
+
+def test_mantle_gpt_rows_price_their_web_searches(local_model_cost_map):
+    """Every commercial Bedrock Mantle GPT row routed to Responses bills each reported search at the rate it declares."""
+    models: Final = _commercial_mantle_gpt_responses_rows()
+    assert models, "no commercial Bedrock Mantle GPT rows routed to Responses in the cost map"
+
+    problems: Final = tuple(_mantle_gpt_web_search_problems(models))
+    assert not problems, "Bedrock Mantle GPT rows with unusable web search pricing:\n" + "\n".join(problems)
+
+
+def test_mantle_route_guard_covers_a_chat_row_routed_to_responses(local_model_cost_map, monkeypatch):
+    """A row registered as mode: chat while routing through Responses is still priced, not skipped as chat."""
+    model: Final = "bedrock_mantle/openai.gpt-9-route-guard"
+    monkeypatch.setitem(
+        litellm.model_cost,
+        model,
+        {"litellm_provider": "bedrock_mantle", "mode": "chat", "use_openai_responses_path": True},
+    )
+
+    problems: Final = tuple(_mantle_gpt_web_search_problems(_commercial_mantle_gpt_responses_rows()))
+
+    assert any(problem.startswith(model) for problem in problems), problems
 
 
 @pytest.mark.parametrize("model", ["azure/gpt-5-mini", "azure/gpt-5.6-luna"])
